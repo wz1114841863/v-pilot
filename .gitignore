@@ -1,0 +1,9 @@
+./.venv
+.env
+
+example_accu/*
+examples/*
+vpilot.egg-info/*
+__pycache__/*
+.vscode/*
+*.pyc
