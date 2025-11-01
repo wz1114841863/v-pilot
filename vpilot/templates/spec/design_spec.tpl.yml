@@ -1,0 +1,32 @@
+# vpilot/templates/spec/design_spec.tpl.yml
+module_name: "" # 例如: "pipelined_multiplier"
+description: "" # 例如: "一个参数化数据位宽和流水线级数的乘法器"
+
+parameters:
+  - name: "DATA_WIDTH"
+    type: "integer"
+    default_value: 8
+    description: "输入操作数和输出结果的数据位宽"
+  # - name: ...
+
+ports:
+  - name: "clk"
+    direction: "input"
+    width: 1
+    description: "系统时钟"
+  - name: "rst_n"
+    direction: "input"
+    width: 1
+    description: "异步复位,低有效"
+  # - name: ...
+
+key_features:
+  - "功能点1..."
+  - "功能点2..."
+  # 例如: "4级流水线结构"
+  # 例如: "支持旁路逻辑以减少数据冒险"
+
+assumptions_and_constraints:
+  - "假设1..."
+  - "约束1..."
+  # 例如: "复位信号rst_n是异步的"

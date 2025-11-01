@@ -1,0 +1,90 @@
+# 这是<验证计划>模板.
+# LLM将根据<设计规范>来填充此文件.
+
+
+# 链接到已批准的设计规范 (LLM无需填充)
+linked_design_spec: "" # 例如: "accu.design_spec.final.yml"
+
+# 顶层验证策略
+verification_strategy:
+  - "采用UVM方法学进行验证."
+  - "使用pyuvm库实现."
+  - "重点测试功能正确性/流水线时序和边界条件."
+
+# 待验证功能点 (从设计规范中提炼并细化)
+verification_points:
+  - feature: "复位测试 (Reset)"
+    description: "验证异步/同步复位后,所有内部状态和输出是否恢复到默认值."
+    test_scenarios:
+      - "场景1: 上电后立即复位"
+      - "场景2: 正常数据流中复位"
+      - "场景3: 流水线满载时复位"
+    corner_cases:
+      - "复位信号脉宽小于1个时钟周期"
+    coverage_points:
+      - "cp_reset_during_active_transaction: 在有效传输期间触发复位"
+
+  - feature: "基本数据运算 (e.g., 累加)"
+    description: "验证核心功能在典型输入下的正确性."
+    test_scenarios:
+      - "场景1: 零值累加"
+      - "场景2: 连续正值累加"
+      - "场景3: 正负交替累加"
+    corner_cases:
+      - "输入为最大值"
+      - "输入为最小值"
+      - "累加结果溢出 (如果设计支持溢出标志)"
+    coverage_points:
+      - "cp_input_range: (min, 0, max)"
+      - "cp_output_overflow: 是否触发溢出"
+
+  - feature: "数据冒险/旁路逻辑 (Data Hazards / Bypassing)"
+    description: "验证流水线中,依赖数据是否能被正确传递或暂停."
+    test_scenarios:
+      - "场景1: 读后写 (RAW) 冒险,验证旁路是否生效"
+      - "场景2: 连续的RAW冒险 (e.g., add r1, r2, r3; add r4, r1, r5)"
+    corner_cases:
+      - "复位信号打断旁路逻辑"
+    coverage_points:
+      - "cp_bypass_path_used: 旁路路径是否被激活"
+      - "cp_stall_cycles: 是否产生正确的停顿周期"
+
+  # ... LLM应根据设计规范继续添加其他功能点 ...
+
+# UVM组件规划
+uvm_components:
+  - component: "InputAgent (e.g., accu_in_agent)"
+    type: "Active"
+    description: "驱动DUT的输入端口 (e.g., data_in, valid_in)"
+    sequencer: "产生不同类型的数据激励"
+    driver: "按照时序协议驱动物理信号"
+    monitor: "监视输入总线,采集输入Transaction"
+
+  - component: "OutputAgent (e.g., accu_out_agent)"
+    type: "Passive"
+    description: "监测DUT的输出端口 (e.g., data_out, valid_out)"
+    monitor: "监视输出总线,采集输出Transaction"
+
+  - component: "Scoreboard"
+    description: "比对输入和输出Transaction,验证功能正确性."
+    reference_model: "一个Python/C++实现的累加器参考模型"
+    check_logic: "比对参考模型输出和DUT输出,允许一定时延"
+
+  - component: "CoverageCollector"
+    description: "订阅来自Monitor和Scoreboard的分析端口,收集功能覆盖率."
+    coverage_groups:
+      - "输入数据范围覆盖"
+      - "输出结果覆盖"
+      - "交叉覆盖: 输入操作与控制信号 (e.g., enable) 的交叉"
+
+sequence_library:
+  - name: "base_test_seq"
+    description: "所有测试序列的基类"
+  - name: "reset_test_seq"
+    description: "实现复位相关的测试场景"
+  - name: "basic_data_test_seq"
+    description: "实现基本数据运算的测试场景"
+  - name: "hazard_test_seq"
+    description: "实现数据冒险和旁路逻辑的测试场景"
+  - name: "random_stress_test_seq"
+    description: "长时间随机激励压力测试"
