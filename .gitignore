@@ -1,6 +1,8 @@
 ./.venv
 .env
 
+tmp/*
+
 example_accu/*
 examples/*
 vpilot.egg-info/*
