@@ -1,26 +1,35 @@
-from pyuvm import *
+from pyuvm import uvm_agent, uvm_sequencer
 from driver import Driver
 from monitor import Monitor
-from seq_item import MySeqItem  # 导入我们将使用的数据包
 
 
-class MyAgent(UVMAgent):
+class MyAgent(uvm_agent):
     """
-    UVM Agent (100% 可复用骨架)
+    UVM Agent
     """
 
     def build_phase(self):
+        """
+        UVM build_phase: 实例化子组件
+        """
         super().build_phase()
+
+        # Monitor 总是被创建 (无论是 ACTIVE 还是 PASSIVE)
         self.monitor = Monitor.create("monitor", self)
 
-        # 根据 is_active 标志决定是否创建 Driver 和 Sequencer
-        if self.is_active == UVM_ACTIVE:
+        # 仅在 ACTIVE 模式下创建 Driver 和 Sequencer
+        if self.get_is_active() == 1:
             self.driver = Driver.create("driver", self)
-            self.sequencer = UVMSequencer.create("sequencer", self)
-            # 设置 Sequencer 使用的数据包类型
-            ConfigDB().set(self, "sequencer", "item_type", MySeqItem)
+            self.sequencer = uvm_sequencer.create("sequencer", self)
 
     def connect_phase(self):
+        """
+        UVM connect_phase: 连接子组件
+        """
         super().connect_phase()
-        if self.is_active == UVM_ACTIVE:
+
+        # 仅在 ACTIVE 模式下连接 Driver 和 Sequencer
+        if self.get_is_active() == 1:
+            # 将 Driver 的 seq_item_port 连接到 Sequencer 的 seq_item_export
+            # 这样 Driver 才能调用 self.seq_item_port.get_next_item()
             self.driver.seq_item_port.connect(self.sequencer.seq_item_export)

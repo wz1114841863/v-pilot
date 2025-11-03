@@ -10,9 +10,10 @@ SIM ?= verilator
 # --- 语言设置 ---
 TOPLEVEL_LANG ?= verilog
 
-# --- Verilator 特定编译参数 (来自 pyuvm 示例) ---
+# --- Verilator 特定编译参数 ---
 ifeq ($(SIM), verilator)
 	COMPILE_ARGS += --timing
+	EXTRA_ARGS += --trace --trace-structs
 endif
 
 # --- HDL 时间单位 ---
@@ -23,6 +24,7 @@ COCOTB_HDL_TIMEPRECISION ?= 1ps
 export COCOTB_REDUCED_LOG_FMT = 1
 
 # --- RTL 源码 (v-pilot 自动修改) ---
+# 假设 Makefile 在 uvm_tb/ 目录下运行, 源码在 ../rtl/
 # LLM_GENERATED_START: VERILOG_SOURCES
 VERILOG_SOURCES := $(shell find ../rtl -name "*.v" -o -name "*.sv")
 # LLM_GENERATED_END: VERILOG_SOURCES
@@ -30,13 +32,13 @@ VERILOG_SOURCES := $(shell find ../rtl -name "*.v" -o -name "*.sv")
 # --- Verilog 顶层模块 (v-pilot 自动填充) ---
 # COCOTB_TOPLEVEL 是 Verilog/VHDL 顶层实体的名称
 # LLM_GENERATED_START: COCOTB_TOPLEVEL
-COCOTB_TOPLEVEL := accu
+COCOTB_TOPLEVEL := my_design  # 替换my_design为实际顶层模块名称
 # LLM_GENERATED_END: COCOTB_TOPLEVEL
 
 # --- Cocotb 测试模块 ---
-# COCOTB_TEST_MODULES 是 Python 入口文件的 basename (e.g., tb_top.py)
-# 我们的框架固定使用 tb_top
-COCOTB_TEST_MODULES := tb_top
+# COCOTB_TEST_MODULES 是 Python 入口文件的 basename (e.g., test_lib.py)
+# 我们的框架固定使用 test_lib
+COCOTB_TEST_MODULES := test_lib
 
 # --- 包含 Cocotb 的 Make 规则 ---
 include $(shell cocotb-config --makefiles)/Makefile.sim
