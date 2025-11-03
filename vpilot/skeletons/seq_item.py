@@ -33,7 +33,7 @@ class MySeqItem(uvm_sequence_item):
 
     def randomize(self):
         """
-        (可选) LLM 可以实现一个基础的 randomize 方法
+        LLM 可以实现一个基础的 randomize 方法
         """
         # --------------------------------------------------
         # LLM_GENERATED_START: SEQ_ITEM_RANDOMIZE

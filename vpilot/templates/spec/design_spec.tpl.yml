@@ -2,6 +2,14 @@
 module_name: "" # 例如: "pipelined_multiplier"
 description: "" # 例如: "一个参数化数据位宽和流水线级数的乘法器"
 
+# v-pilot 将根据此字段, 选择 'sequential' 骨架或 'combinational' 骨架
+design_type: "" # 填充 'sequential' 或 'combinational'
+
+# v-pilot 将用此信息填充 'base_bfm.py' 中的 BFM_HANDLES
+key_signals:
+  clk: ""   # 时钟信号名称, e.g., "clk_i", 或置空""
+  rst_n: "" # 复位信号名称, e.g., "rst_n_i", 或置空""
+
 parameters:
   - name: "DATA_WIDTH"
     type: "integer"

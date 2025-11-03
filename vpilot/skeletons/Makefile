@@ -29,6 +29,11 @@ export COCOTB_REDUCED_LOG_FMT = 1
 VERILOG_SOURCES := $(shell find ../rtl -name "*.v" -o -name "*.sv")
 # LLM_GENERATED_END: VERILOG_SOURCES
 
+# 默认的冒烟测试名称
+# LLM_GENERATED_START: DEFAULT_TESTCASE
+TESTCASE ?= SanityCheckTest
+# LLM_GENERATED_END: DEFAULT_TESTCASE
+
 # --- Verilog 顶层模块 (v-pilot 自动填充) ---
 # COCOTB_TOPLEVEL 是 Verilog/VHDL 顶层实体的名称
 # LLM_GENERATED_START: COCOTB_TOPLEVEL

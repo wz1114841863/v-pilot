@@ -156,7 +156,16 @@ def init():
 @app.command("iterate", help="根据反馈文件,对<验证计划>进行迭代.")
 def iterate(
     feedback_file: Path = typer.Option(
-        ..., "--feedback", "-f", help="包含工程师反馈的纯文本文件"
+        None,
+        "--feedback",
+        "-f",
+        help="包含工程师反馈的纯文本文件",
+    ),
+    feedback_message: str = typer.Option(
+        None,
+        "--message",
+        "-m",
+        help="直接从命令行传入的反馈字符串.",
     ),
     version: int = typer.Option(2, "--version", "-v", help="要生成的新版本号"),
 ):
@@ -166,16 +175,27 @@ def iterate(
     3. 调用LLM继续对话.
     4. 保存 V(n) 版本.
     """
-    if not feedback_file.exists():
-        typer.secho(f"错误: 反馈文件 '{feedback_file}' 不存在.", fg=typer.colors.RED)
+    feedback_text = ""
+    if feedback_message:
+        typer.echo("  > 正在使用来自命令行 '--message' 的反馈字符串...")
+        feedback_text = feedback_message
+    elif feedback_file:
+        typer.echo(f"  > 正在使用来自文件 '--feedback' 的反馈: {feedback_file}")
+        if not feedback_file.exists():
+            typer.secho(
+                f"错误: 反馈文件 '{feedback_file}' 不存在.", fg=typer.colors.RED
+            )
+            raise typer.Exit(code=1)
+        try:
+            feedback_text = feedback_file.read_text(encoding="utf-8")
+        except Exception as e:
+            typer.secho(f"错误: 读取反馈文件失败: {e}", fg=typer.colors.RED)
+            raise typer.Exit(code=1)
+    else:
+        typer.secho("错误: 必须提供反馈.", fg=typer.colors.RED)
+        typer.echo("  > 请使用 '--message \"您的反馈\"'")
+        typer.echo("  > 或使用 '--feedback <文件路径>'.")
         raise typer.Exit(code=1)
-
-    if not PLAN_HISTORY_FILE.exists():
-        typer.secho("错误: 找不到对话历史,请先运行 'init' 命令.", fg=typer.colors.RED)
-        raise typer.Exit(code=1)
-
-    typer.echo(f"🚀 (会话: 计划) 正在根据反馈生成 V{version}...")
-    feedback_text = feedback_file.read_text()
 
     # 构建新一轮的User Prompt
     user_prompt = f"""
@@ -278,10 +298,10 @@ def approve(
         os.remove(f)
 
     # --- 5. 更新状态文件 (解锁UVM Gen) ---
-    state["current_stage"] = "uvm_gen"
+    state["current_stage"] = "uvm_build"
     state["plan_approved"] = True
     state["final_plan_file"] = str(archive_plan_file)
     write_state(state)
 
     typer.secho(f"✅ <验证计划>已批准并成功归档!", fg=typer.colors.GREEN)
-    typer.echo("  > 准备就绪!您现在可以运行 'vpilot uvm gen' 来生成代码了.")
+    typer.echo("  > 准备就绪!您现在可以运行 'vpilot uvm build' 来生成代码了.")
