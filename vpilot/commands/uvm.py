@@ -23,7 +23,7 @@ UVM_BUILD_SYSTEM_PROMPT = """
 你是 'UVM 构建领航员' (UVM Build Navigator).
 你的任务是与我 (v-pilot 引擎) 协作, 逐块填充 UVM 骨架文件.
 该骨架由cocotb 和 pyuvm 编写, 均为 Python 语言.
-我将为你提供 'spec.yml' 和 'plan.yml'.
+我将为你提供 'spec.yml' 和 'plan.yml', 以及当前正在编辑的文件内容.
 我将按顺序给你下达任务, 比如 "填充 BFM_HANDLES".
 
 [!!] 您的响应 *必须* 严格遵守以下格式 [!!]
@@ -69,69 +69,83 @@ def load_state():
         raise typer.Exit(code=1)
 
 
-def _execute_task(prompt: str) -> str:
+def _execute_task_with_context(relative_file, task_prompt, spec_text, plan_text):
     """
-    一个包装器, 封装了调用 LLM 并打印状态的逻辑
+    1. 读取 'relative_file' 的 *当前* 内容.
+    2. 将其与 'spec'/'plan' 和 'task_prompt' 组合成一个完整的 Prompt.
+    3. 调用 LLM.
     """
-    # 打印任务标题 (假设 Prompt 的第二行是标题)
-    # try:
-    #     title = [line for line in prompt.splitlines() if line.strip()][1]
-    #     typer.echo(f"  > 正在执行: {title.strip()}")
-    # except IndexError:
-    #     typer.echo(f"  > 正在执行新任务...")
-    typer.echo(f"  > 正在执行新任务...")
-    response = execute_conversation_turn(UVM_BUILD_HISTORY, "", prompt)
+    typer.echo(f"  > 正在执行: {relative_file} ({task_prompt.splitlines()[1].strip()})")
+
+    # 1. [!!] 关键: 读取文件 *当前* 的内容
+    try:
+        current_file_content = (UVM_TB_DIR / relative_file).read_text(encoding="utf-8")
+    except Exception as e:
+        typer.secho(
+            f"  > [!!] 错误: 无法读取骨架文件: {relative_file}: {e}",
+            fg=typer.colors.RED,
+        )
+        raise typer.Exit(code=1)
+
+    # 2. 构建完整 Prompt
+    full_prompt = f"""
+    {task_prompt}
+
+    [!!] 核心上下文 1: Design Spec
+    --- design_spec.final.yml ---
+    {spec_text}
+
+    [!!] 核心上下文 2: Verification Plan
+    --- verif_plan.final.yml ---
+    {plan_text}
+
+    [!!] 核心上下文 3: 正在编辑的文件
+    --- {relative_file} ---
+    {current_file_content}
+    --- (文件结束) ---
+
+    请分析所有上下文, 并严格按照 'UVM_BUILD_SYSTEM_PROMPT' (您在历史中的系统提示)
+    中定义的 'v-pilot:fill:...' 和 'v-pilot:context:...' 格式进行响应.
+    """
+
+    response = execute_conversation_turn(UVM_BUILD_HISTORY, "", full_prompt)
     return response
 
 
-def _parse_and_inject(response: str, code_manager: CodeManager) -> dict:
-    """
-    解析 LLM 的响应, 提取 'fill' 和 'context' 块.
-    """
+def _parse_and_inject(response, code_manager):
     build_context = {}
 
-    # 我们将响应按 'v-pilot:' 标签分割
     for block in response.split("v-pilot:"):
         if not block.strip():
             continue
 
         try:
-            # [!!] 关键修复:
-            # 我们不再假设 *所有* 块都有换行符
-            #
             block_lines = block.strip().split("\n", 1)
             header = block_lines[0].strip()
-            content = (
-                block_lines[1] if len(block_lines) > 1 else ""
-            )  # (如果单行, content 为空)
+            content = block_lines[1] if len(block_lines) > 1 else ""
 
             header_parts = header.strip().split(":")
-            cmd_type = header_parts[0]  # "fill" or "context"
+            cmd_type = header_parts[0]
 
             if cmd_type == "fill":
-                # 格式: fill:[filename.py]:[BLOCK_ID]
                 if len(header_parts) != 3:
                     raise ValueError(f"Fill 头部格式错误: {header}")
                 if not content:
-                    # 'fill' 块不应该为空
                     raise ValueError(f"Fill 块内容为空: {header}")
 
                 file_to_fix = header_parts[1].strip()
                 block_to_fix = header_parts[2].strip()
 
+                # CodeManager会自动清理 content
                 code_manager.update_block(file_to_fix, block_to_fix, content)
 
             elif cmd_type == "context":
-                # 格式: context:[key]:[value_or_list_str]
-                # [!!] 关键修复:
-                # 'context' 是一个 *单行* 命令, content 应该是空的
                 if len(header_parts) != 3:
                     raise ValueError(f"Context 头部格式错误: {header}")
 
                 key = header_parts[1].strip()
                 value_str = header_parts[2].strip()
 
-                # (解析上下文值的逻辑保持不变)
                 if value_str.startswith("[") and value_str.endswith("]"):
                     build_context[key] = [
                         m.strip().strip("'\"")
@@ -153,7 +167,7 @@ def _parse_and_inject(response: str, code_manager: CodeManager) -> dict:
 @app.command("build", help="[!!] 启动一个交互式会话来构建 UVM 脚手架")
 def build():
     """
-    'uvm build', 这是一个有状态的会话
+    'uvm build', 一个有状态的会话
     """
     typer.echo("启动 UVM 构建会话...")
     # --- 1. 门控检查和加载 ---
@@ -208,15 +222,11 @@ def build():
     build_context = {}
 
     # --- 4. [!!] 启动"总调度循环" [!!] ---
-
-    # 任务 0: 发送系统提示和蓝图
+    # 任务 0: 发送系统提示
     initial_prompt = f"""
     {UVM_BUILD_SYSTEM_PROMPT}
-    --- 蓝图 1: design_spec.final.yml ---
-    {spec_text}
-    --- 蓝图 2: verif_plan.final.yml ---
-    {plan_text}
-    请确认你已准备好, 等待我的第一个任务.
+    我将按顺序向您发送任务, 每个任务都会包含 Spec, Plan 和
+    *当前正在编辑的文件内容*.请准备好.
     """
     execute_conversation_turn(UVM_BUILD_HISTORY, "", initial_prompt)
 
@@ -225,13 +235,12 @@ def build():
     # ---
     prompt = """
     任务 1: 填充 'Makefile' 的 'COCOTB_TOPLEVEL' 块.
-    根据 'design_spec.yml' 中的 'module_name' 字段.
+    (根据 'spec.module_name')
 
     [!!] 响应格式:
     v-pilot:fill:Makefile:COCOTB_TOPLEVEL
-    COCOTB_TOPLEVEL := (你的模块名)
     """
-    response = _execute_task(prompt)
+    response = _execute_task_with_context("Makefile", prompt, spec_text, plan_text)
     _parse_and_inject(response, code_manager)
 
     # ---
@@ -239,20 +248,22 @@ def build():
     # ---
     prompt = """
     任务 2: 填充 'base_bfm.py' 中的 *所有* 4 个 LLM 块:
-    1. 'BFM_HANDLES' (根据 'spec.key_signals')
+    1. 'BFM_HANDLES' (根据 'spec.key_signals' 和 'spec.ports')
     2. 'BFM_RESET_TASK' (根据 'spec.key_signals')
     3. 'BFM_DRIVER_TASKS' (根据 'spec.ports' 中所有 'input' 端口)
     4. 'BFM_MONITOR_TASKS_AND_GETTERS' (根据 'spec.ports' 中所有 'input' 和 'output' 端口)
 
-    [!!] 响应格式:
-    请在响应中包含你生成的 *所有* BFM 方法 (包括 'reset') 的名称列表:
-    'v-pilot:context:bfm_methods:[reset, drive_input, wait_for_output, get_output_data]'
+    [!!] 关键:
+    你 *必须* 查看 'base_bfm.py' 的文件内容,
+    并 'def' (定义) 这些方法在 'class BaseBfm' 内部.
 
-    并为所有 4 个代码块使用 'v-pilot:fill:base_bfm.py:[BLOCK_ID]'.
+    [!!] 响应格式:
+    1. v-pilot:context:bfm_methods:[reset, drive_input, ...] (您生成的方法列表)
+    2. v-pilot:fill:base_bfm.py:[BLOCK_ID] (所有 4 个块)
     """
-    response = _execute_task(prompt)
+    response = _execute_task_with_context("base_bfm.py", prompt, spec_text, plan_text)
     ctx = _parse_and_inject(response, code_manager)
-    build_context.update(ctx)  # (保存 'bfm_methods' 列表)
+    build_context.update(ctx)
 
     # ---
     # 任务 3: seq_item.py (所有字段)
@@ -264,10 +275,13 @@ def build():
     3. 'SEQ_ITEM_STR'
     4. 'SEQ_ITEM_EQ' (必须比较所有 *输出* 字段)
 
-    [!!] 响应格式:
-    请使用 'v-pilot:fill:seq_item.py:[BLOCK_ID]'.
+    [!!] 关键:
+    查看 'seq_item.py' 的文件内容, 确保你的代码
+    填充在 `class MySeqItem(uvm_sequence_item):` 内部.
+
+    [!!] 响应格式: (所有 4 个 'v-pilot:fill:seq_item.py:[BLOCK_ID]' 块)
     """
-    response = _execute_task(prompt)
+    response = _execute_task_with_context("seq_item.py", prompt, spec_text, plan_text)
     _parse_and_inject(response, code_manager)
 
     # ---
@@ -280,16 +294,14 @@ def build():
     你在任务 2 中 (在 'base_bfm.py' 中) 生成了以下可用 BFM 方法:
     {build_context.get('bfm_methods', '[]')}
 
-    你 *必须* 从该列表中选择 'drive'/'write' 相关的方法来调用.
-    (e.g., 'await self.bfm.drive_input_transaction(seq_item)')
+    [!!] 关键:
+    查看 'driver.py' 的文件内容, 你的代码将位于 'run_phase'
+    的 'while True' 循环内部.
+    你 *必须* 从上面的列表中选择 'drive'/'write' 相关的方法来调用.
 
-    [!!] 严格规则: 你 *禁止* 在此块中导入 'cocotb'.
-
-    [!!] 响应格式:
-    v-pilot:fill:driver.py:DRIVER_BFM_CALL
-    ... (你的代码) ...
+    [!!] 响应格式: v-pilot:fill:driver.py:DRIVER_BFM_CALL
     """
-    response = _execute_task(prompt)
+    response = _execute_task_with_context("driver.py", prompt, spec_text, plan_text)
     _parse_and_inject(response, code_manager)
 
     # ---
@@ -302,16 +314,14 @@ def build():
     1. 你在 BFM 中生成的可用方法: {build_context.get('bfm_methods', '[]')}
     2. 你 *必须* 创建一个 'MySeqItem' 实例: `mon_item = MySeqItem()`
 
-    你的任务是:
-    1. 调用你在 BFM 中生成的 'monitor' 或 'getter' 方法.
-    2. 将 BFM 返回的数据填充到 'mon_item' 中.
-    3. 确保 'self.ap.write(mon_item)' 在最后被调用.
+    你的任务是 (在 'while True' 循环内):
+    1. 调用你在 BFM 中生成的 'monitor' 或 'getter' 方法 (e.g., 'await self.bfm.wait_for_output_valid()')
+    2. 将 BFM 返回的数据填充到 'mon_item' 中
+    3. 确保 'self.ap.write(mon_item)' 在最后被调用
 
-    [!!] 响应格式:
-    v-pilot:fill:monitor.py:MONITOR_BFM_CALL
-    ... (你的代码) ...
+    [!!] 响应格式: v-pilot:fill:monitor.py:MONITOR_BFM_CALL
     """
-    response = _execute_task(prompt)
+    response = _execute_task_with_context("monitor.py", prompt, spec_text, plan_text)
     _parse_and_inject(response, code_manager)
 
     # ---
@@ -319,14 +329,13 @@ def build():
     # ---
     prompt = """
     任务 6: 填充 'scoreboard.py' 中的 *所有* 3 个 LLM 块:
-    1. 'REFERENCE_MODEL_INIT'
-    2. 'REFERENCE_MODEL_LOGIC' (定义 RM 的 'def _run_rm_...' 方法)
-    3. 'SB_RUN_RM' (在 _expected_listener 中调用 RM, 并存入 'self.expected_q')
+    1. 'REFERENCE_MODEL_INIT' (在 build_phase 中)
+    2. 'REFERENCE_MODEL_LOGIC' (在 'class Scoreboard' 顶层定义 RM 方法)
+    3. 'SB_RUN_RM' (在 _expected_listener 中, 'await fifo.get()' 之后)
 
-    [!!] 响应格式:
-    请使用 'v-pilot:fill:scoreboard.py:[BLOCK_ID]'.
+    [!!] 响应格式: (所有 3 个 'v-pilot:fill:scoreboard.py:[BLOCK_ID]' 块)
     """
-    response = _execute_task(prompt)
+    response = _execute_task_with_context("scoreboard.py", prompt, spec_text, plan_text)
     _parse_and_inject(response, code_manager)
 
     # ---
@@ -337,15 +346,21 @@ def build():
     1. 'ENV_INSTANTIATION' (根据 'plan.uvm_topology.agents' 和 'scoreboards')
     2. 'ENV_CONNECTIONS' (根据 'plan.uvm_topology' 中的连接信息)
 
-    [!!] 响应格式:
-    请在响应中包含你实例化的 *所有* sequencer 的 *完整访问路径*
-    (e.g., 'v-pilot:context:sequencers:[self.env.input_agent.sequencer]')
+    [!!] 关键规则:
+    - 你 *必须* 使用 'MyAgent' (来自 'agent.py')
+    - 你 *必须* 使用 'Scoreboard' (来自 'scoreboard.py')
+    - 你 *必须* 使用 'Coverage' (来自 'coverage.py')
+    - 你 *必须* 使用 Monitor 的 'ap' 端口
+    - 你 *必须* 使用 Scoreboard 的 'expected_fifo.analysis_export' 和 'actual_fifo.analysis_export'
+    - 你 *必须* 使用 Coverage 的 'analysis_export'
 
-    请使用 'v-pilot:fill:env.py:[BLOCK_ID]'.
+    [!!] 响应格式:
+    1. v-pilot:context:sequencers:[self.env.input_agent.sequencer] (你实例化的 *所有* sequencer 路径)
+    2. (所有 2 个 'v-pilot:fill:env.py:[BLOCK_ID]' 块)
     """
-    response = _execute_task(prompt)
+    response = _execute_task_with_context("env.py", prompt, spec_text, plan_text)
     ctx = _parse_and_inject(response, code_manager)
-    build_context.update(ctx)  # (保存 'sequencers' 列表)
+    build_context.update(ctx)
 
     # ---
     # 任务 8: coverage.py (覆盖点)
@@ -356,10 +371,9 @@ def build():
        生成 '@CoverPoint' 定义, 和 'sample_coverage' 函数)
     2. 'COVERAGE_SAMPLE_CALL' (在 'write' 方法中, 调用 'sample_coverage(item)')
 
-    [!!] 响应格式:
-    请使用 'v-pilot:fill:coverage.py:[BLOCK_ID]'.
+    [!!] 响应格式: (所有 2 个 'v-pilot:fill:coverage.py:[BLOCK_ID]' 块)
     """
-    response = _execute_task(prompt)
+    response = _execute_task_with_context("coverage.py", prompt, spec_text, plan_text)
     _parse_and_inject(response, code_manager)
 
     # ---
@@ -372,21 +386,19 @@ def build():
     你 *必须* 使用的 Sequence Item (数据包) 类名是 'MySeqItem'.
 
     [!!] 严格规则: (我们之前讨论过的)
-    'Sequence' *只* 允许做 UVM 序列的工作:
-    'self.item.randomize()', 'await self.start_item(self.item)', 等.
+    'Sequence' *只* 允许做 UVM 序列的工作 (e.g., 'await self.start_item(...)').
+    你 *禁止* 访问 'self.dut', 'self.bfm', 'self.agent'.
 
-    你 *绝对禁止* 访问 'self.dut', 'self.bfm', 或 'self.agent'.
-
-    [!!] 例外 (来自您的反馈):
+    [!!] 例外 (导入):
     *只有* 在 'plan.sequence_library' 描述中 *明确* 要求
-    'fork/join' 或 'parallel' 时, 你才 *被允许* 导入 'cocotb'
-    并使用 'cocotb.start_soon()'.
+    'fork/join' 或 'parallel' 时, 你才 *被允许* 导入 'cocotb'.
+    如果导入, 'import' 语句必须在 'SEQUENCES' 块的 *内部*.
 
-    [!!] 响应格式:
-    v-pilot:fill:sequence_lib.py:SEQUENCES
-    ... (你的代码, 如果需要导入, import 语句在代码块 *内部*) ...
+    [!!] 响应格式: v-pilot:fill:sequence_lib.py:SEQUENCES
     """
-    response = _execute_task(prompt)
+    response = _execute_task_with_context(
+        "sequence_lib.py", prompt, spec_text, plan_text
+    )
     _parse_and_inject(response, code_manager)
 
     # ---
@@ -400,30 +412,21 @@ def build():
     {build_context.get('sequencers', '[]')}
 
     [!!] 关键上下文 (Imports):
-    'test_lib.py' 骨架文件已经包含了:
+    查看 'test_lib.py' 的文件内容, 它 *已经* 导入了:
+    `from base_test import MyBaseTest`
     `import sequence_lib as seq_lib`
 
-    你的任务是:
+    [!!] 严格规则:
     1. 根据 'plan.sequence_library' 列表, 为 *每一项* 生成一个 '@pyuvm.test()' 类.
     2. 每一个类都 *必须* 继承自 'MyBaseTest'.
     3. 每一个类都 *必须* 重写 'async def main_phase(self)'.
     4. 在 'main_phase' 中, 你 *必须* 使用 `seq_lib.` **命名空间**
-       来 `create` 对应的序列.
+       来 `create` 对应的序列 (e.g., `seq = seq_lib.BasicDataTestSeq.create("seq")`).
+    5. 你 *必须* 使用一个 *正确* 的 Sequencer 路径 (来自上面的上下文) 来 `start` 序列.
 
-       [!!] 正确示例:
-       `seq = seq_lib.BasicDataTestSeq.create("seq")`
-       `await seq.start(...)`
-
-       [!!] 错误示例 (将导致 NameError):
-       `seq = BasicDataTestSeq.create("seq")`
-
-    5. 你 *必须* 使用一个 *正确* 的 Sequencer 路径 (来自上面的上下文).
-
-    [!!] 响应格式:
-    v-pilot:fill:test_lib.py:TESTS
-    ... (你的代码) ...
+    [!!] 响应格式: v-pilot:fill:test_lib.py:TESTS
     """
-    response = _execute_task(prompt)
+    response = _execute_task_with_context("test_lib.py", prompt, spec_text, plan_text)
     _parse_and_inject(response, code_manager)
 
     typer.secho("✅ UVM 脚手架已初步生成完毕!", fg=typer.colors.GREEN)

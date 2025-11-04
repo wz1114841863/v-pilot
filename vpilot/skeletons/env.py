@@ -18,7 +18,7 @@ class TestEnv(uvm_env):
         # LLM_GENERATED_START: ENV_INSTANTIATION
         # --------------------------------------------------
         # [!!] LLM 的任务:
-        # 根据<验证计划>的 'uvm_components' 部分来实例化 Agents 和 Scoreboards
+        # 根据plan.yml的 'uvm_components' 部分来实例化 Agents 和 Scoreboards
         #
         # 示例 (单Agent, 1个Monitor监控输入和输出):
         # self.agent = MyAgent.create("agent", self)
@@ -49,14 +49,15 @@ class TestEnv(uvm_env):
         # [!!] LLM 的任务:
         # 将 'Monitor(s)' 的分析端口 (ap) 连接到
         # 'Scoreboard(s)' 的实现端口 (imp)
+        # (LLM 填充示例:)
+        # # (连接: Input Monitor -> Scoreboard Expected)
+        # self.input_agent.monitor.ap.connect(self.scoreboard.expected_fifo.analysis_export)
+        # # (连接: Output Monitor -> Scoreboard Actual)
+        # self.output_agent.monitor.ap.connect(self.scoreboard.actual_fifo.analysis_export)
         #
-        # 示例 (单Agent, 假设 Monitor 有 'input_ap' 和 'output_ap'):
-        # self.agent.monitor.input_ap.connect(self.scoreboard.expected_imp)
-        # self.agent.monitor.output_ap.connect(self.scoreboard.actual_imp)
-
-        # 示例 (双Agent, In/Out):
-        # self.input_agent.monitor.ap.connect(self.scoreboard.expected_imp)
-        # self.output_agent.monitor.ap.connect(self.scoreboard.actual_imp)
+        # # (连接: Monitors -> Coverage)
+        # self.input_agent.monitor.ap.connect(self.coverage.analysis_export)
+        # self.output_agent.monitor.ap.connect(self.coverage.analysis_export)
         # --------------------------------------------------
         # LLM_GENERATED_END: ENV_CONNECTIONS
         # --------------------------------------------------

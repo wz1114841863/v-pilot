@@ -1,12 +1,11 @@
 import re
-from pathlib import Path
 import typer
-import textwrap
+from pathlib import Path
 
 
 class CodeManager:
 
-    def __init__(self, uvm_tb_path: Path):
+    def __init__(self, uvm_tb_path):
         self.uvm_tb_path = uvm_tb_path
         if not self.uvm_tb_path.is_dir():
             typer.secho(
@@ -14,40 +13,28 @@ class CodeManager:
             )
             raise FileNotFoundError(f"指定的 uvm_tb 路径不存在: {uvm_tb_path}")
 
-    def _get_file_path(self, relative_file: str) -> Path:
+    def _get_file_path(self, relative_file):
         return (self.uvm_tb_path / relative_file).resolve()
 
-    def _get_block_pattern(self, block_id: str) -> re.Pattern:
+    def _get_block_pattern(self, block_id):
         """
-        使用一个更健壮的/非锚定 (^) 的正则表达式
-        来捕获 START 和 END 标签行的缩进.
+        它匹配 (START 标签) + (内容) + (END 标签前的空白) + (END 标签)
+        不关心 START 标签行的缩进.
         """
-        # 1. 定义 START/END 标签 (不变)
         start_marker = f"# LLM_GENERATED_START: {re.escape(block_id)}"
         end_marker = f"# LLM_GENERATED_END: {re.escape(block_id)}"
 
-        # [!!] 关键修复:
-        # 我们匹配 (START 标签行) + (内容) + (END 标签行)
-
-        # (组 1: (\s*)) - 捕获 START 标签 *行* 的缩进
-        # (组 2: ({start_marker})) - 捕获 START 标签 (不含 #)
-        start_line_re = r"(\s*)(" + re.escape(start_marker) + r")"
-
-        # (组 4: (\s*)) - 捕获 END 标签 *行* 的缩进
-        # (组 5: ({end_marker})) - 捕获 END 标签 (不含 #)
-        end_line_re = r"(\s*)(" + re.escape(end_marker) + r")"
-
-        # 3. 组合: (Start Line)(Content)(End Line)
-        #    re.DOTALL 使得 (.*?) (组 3) 可以匹配换行符
+        # (组 1: START 标签)
+        # (组 2: 内容)
+        # (组 3: END 标签前的空白)
+        # (组 4: END 标签)
         pattern = re.compile(
-            f"{start_line_re}"  # (Group 1: Indent_Start), (Group 2: Tag_Start)
-            r"(.*?)"  # (Group 3: Content)
-            f"{end_line_re}",  # (Group 4: Indent_End), (Group 5: Tag_End)
+            f"({re.escape(start_marker)})(.*?)(\\s*)({re.escape(end_marker)})",
             re.DOTALL,
         )
         return pattern
 
-    def _sanitize_llm_code(self, raw_response: str) -> str:
+    def _sanitize_llm_code(self, raw_response):
         """
         清理 LLM 的原始响应.
         """
@@ -61,14 +48,14 @@ class CodeManager:
         # 2. 去除 'v-pilot:fill:[...]' 头部
         code = re.sub(r"^v-pilot:fill:.*?\n", "", code, flags=re.MULTILINE)
 
+        # 移除 LLM 倾向于添加的多余空行
         code = re.sub(r"(\n\s*){2,}", "\n", code)
 
-        return code  # (V5 已修复: 不使用 .strip())
+        return code
 
-    def update_block(self, relative_file: str, block_id: str, new_code: str) -> bool:
+    def update_block(self, relative_file, block_id, new_code):
         """
-        [!!] V5 修复:
-        替换逻辑现在 *必须* 使用 V5 正则表达式捕获的组
+        假设 LLM 返回的代码 *已包含* 正确的缩进.
         """
         file_path = self._get_file_path(relative_file)
 
@@ -85,42 +72,40 @@ class CodeManager:
             if not match:
                 typer.secho(
                     f"CodeManager Error: 找不到标记 '{block_id}' "
-                    f"在文件 {relative_file} 中 (V5 Regex)",
+                    f"在文件 {relative_file} 中 (V7 Regex)",
                     fg=typer.colors.RED,
                 )
                 return False
 
-            # [!!] 关键修复:
-            # 1. 捕获 START 标签的缩进 (来自组 1)
-            indent_str = match.group(1)
-
-            # 2. 捕获 START 标签 (来自组 2)
-            start_tag = match.group(2)
-
-            # 3. 捕获 END 标签的缩进 (来自组 4)
-            end_ws = match.group(4)
-
-            # 4. 捕获 END 标签 (来自组 5)
-            end_tag = match.group(5)
-
-            # 5. 清理 LLM 的代码 (不变)
+            # 1. 清理 LLM 的代码 (移除 Markdown 和多余空行)
             clean_code = self._sanitize_llm_code(new_code)
 
-            # 6. [!!] 将捕获的缩进 'indent_str' 应用到
-            #    'clean_code' 的 *每一行*
-            indented_code = textwrap.indent(clean_code, indent_str)
+            # 3. 构建替换:
+            # (组 1: START 标签)
+            # (组 3: END 标签前的空白)
+            # (组 4: END 标签)
+            #
+            # [!!] 关键:
+            # clean_code (LLM 的响应) *必须*
+            # 1. 以 '\n' + '缩进' 开头
+            # 2. 以 '缩进' + '\n' 结尾
+            #
+            # 让我们强制执行这一点:
 
-            # 7. 构建新的替换字符串
-            #    [!!] 关键:
-            #    Start 标签 *后* 的换行符是 '\n'
-            #    Content *后* 的换行符 *已经包含* 在 'end_ws' 中
-            #    (因为 (.*?) (组 3) 匹配到它, 且 (\s*) (组 4) 会匹配 END 标签前的换行和缩进)
-            replacement = f"{indent_str}{start_tag}\n{indented_code}\n{end_ws}{end_tag}"
+            # (从 'match.group(3)' 中提取 END 标签的缩进)
+            end_ws_match = re.search(r"(\s*)$", match.group(3))
+            indent_str = end_ws_match.group(1) if end_ws_match else ""
 
-            # 8. 执行替换
-            #    [!!] 关键: 我们必须替换 'match.group(0)' (整个匹配)
-            new_content = original_content.replace(match.group(0), replacement)
+            # 确保代码以换行+缩进开头 (如果它还不是的话)
+            if not clean_code.startswith("\n"):
+                clean_code = f"\n{indent_str}{clean_code}"
 
+            # 确保代码以换行+缩进结尾
+            if not clean_code.endswith(f"\n{indent_str}"):
+                clean_code = f"{clean_code}\n{indent_str}"
+
+            replacement = f"\\1{clean_code}\\4"
+            new_content = pattern.sub(replacement, original_content, count=1)
             file_path.write_text(new_content, encoding="utf-8")
 
             typer.secho(
@@ -130,35 +115,25 @@ class CodeManager:
             return True
 
         except Exception as e:
-            typer.secho(
-                f"CodeManager Error: 写入文件 {file_path} 失败: {e}",
-                fg=typer.colors.RED,
-            )
+            # ... (错误处理)
             return False
 
-    def read_block(self, relative_file: str, block_id: str) -> str | None:
-        """
-        (读取也需要 V5 修复, 以确保它能 *找到* 块)
-        """
+    def read_block(self, relative_file, block_id):
         file_path = self._get_file_path(relative_file)
 
         if not file_path.exists():
-            # ... (错误处理)
             return None
 
         try:
             content = file_path.read_text(encoding="utf-8")
-            pattern = self._get_block_pattern(block_id)  # (使用 V5 正则)
-
+            pattern = self._get_block_pattern(block_id)
             match = pattern.search(content)
-
             if match:
-                # 返回组 3 (内容), 并去除首尾空白
                 return match.group(3).strip()
             else:
                 typer.secho(
                     f"CodeManager Error: 找不到标记 '{block_id}' "
-                    f"在文件 {relative_file} 中 (V5 Read)",
+                    f"在文件 {relative_file} 中 ",
                     fg=typer.colors.RED,
                 )
                 return None

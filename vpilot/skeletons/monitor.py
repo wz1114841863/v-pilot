@@ -35,33 +35,21 @@ class Monitor(uvm_component):
             # --------------------------------------------------
             # LLM_GENERATED_START: MONITOR_BFM_CALL
             # --------------------------------------------------
-            # [!!] LLM 的任务:
-            # 1. 调用在 'base_bfm.py' 中定义的 *监视* 任务(们)
-            # 2. 将返回的数据组装成一个 'MySeqItem'
-            # 3. (可选) 将组装好的 item 赋值给 'mon_item'
-            # 4. [!!] 循环中必须至少有一个 'await'
+            # (LLM 填充示例:)
+            # # (调用在 base_bfm.py 中定义的 BFM 方法)
+            # # 1. 等待并采集
+            # monitored_data = await self.bfm.monitor_output_transaction()
             #
-            # 示例 (BFM 提供了 'getter' 方法):
-            #
-            # await self.bfm.wait_for_input_valid()
+            # # 2. 组装
             # mon_item = MySeqItem()
-            # mon_item.data_in = self.bfm.get_input_data()
+            # mon_item.data_out = monitored_data
             #
-            # await self.bfm.wait_for_output_valid()
-            # mon_item.data_out = self.bfm.get_output_data()
+            # # 3. 广播
+            # self.ap.write(mon_item)
             #
-            # 示例 (BFM 提供了高层 'transaction' 任务):
-            #
-            # mon_item = await self.bfm.monitor_full_transaction()
-            #
-            # --------------------------------------------------
-            # (LLM 必须在下面 'self.ap.write' 之前,
-            #  创建并填充一个名为 'mon_item' 的 MySeqItem)
-            mon_item = MySeqItem()  # 占位符, LLM 必须正确填充
+            # (LLM 必须确保此块中至少有一个 'await')
+            # (如果 BFM 只有 getter, LLM 必须 await self.bfm.wait_clock())
+            await self.bfm.wait_clock(1)  # (一个安全的占位符)
             # --------------------------------------------------
             # LLM_GENERATED_END: MONITOR_BFM_CALL
             # --------------------------------------------------
-
-            # 3. 将采集到的数据包广播给所有订阅者 (Scoreboard, Coverage)
-            self.logger.debug(f"Monitor broadcasting item: {mon_item}")
-            self.ap.write(mon_item)

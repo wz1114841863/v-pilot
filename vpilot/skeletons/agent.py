@@ -4,14 +4,10 @@ from monitor import Monitor
 
 
 class MyAgent(uvm_agent):
-    """
-    UVM Agent
-    """
+    """UVM Agent"""
 
     def build_phase(self):
-        """
-        UVM build_phase: 实例化子组件
-        """
+        """UVM build_phase: 实例化子组件"""
         super().build_phase()
 
         # Monitor 总是被创建 (无论是 ACTIVE 还是 PASSIVE)
@@ -23,9 +19,7 @@ class MyAgent(uvm_agent):
             self.sequencer = uvm_sequencer.create("sequencer", self)
 
     def connect_phase(self):
-        """
-        UVM connect_phase: 连接子组件
-        """
+        """UVM connect_phase: 连接子组件"""
         super().connect_phase()
 
         # 仅在 ACTIVE 模式下连接 Driver 和 Sequencer
