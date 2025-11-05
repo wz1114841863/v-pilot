@@ -1,17 +1,16 @@
-from pyuvm import uvm_driver
-from pyuvm.s14_15_python_sequences import uvm_seq_item_port
-from base_bfm import BaseBfm  # 导入 BFM 单例
+# vpilot/skeletons/driver.py
+#
+# UVM Driver (BFM 模式)
+# 职责: 1. 从 Sequencer 获取 SeqItem. 2. 调用 BFM 的 async 方法.
+from pyuvm import uvm_driver, uvm_seq_item_port
+from base_bfm import BaseBfm
 
 
 class Driver(uvm_driver):
-    """
-    UVM Driver
-    """
+    """UVM Driver"""
 
     def build_phase(self):
-        """
-        UVM build_phase: 获取 BFM, 创建端口
-        """
+        """获取 BFM, 创建端口"""
         super().build_phase()
 
         # 1. 获取 BFM 单例
@@ -19,13 +18,11 @@ class Driver(uvm_driver):
         if self.bfm is None:
             self.fail("BFM Singleton not found.")
 
-        # 2. 创建 seq_item_port
-        self.seq_item_port = uvm_seq_item_port("seq_item_port", self)
+        # 创建 seq_item_port
+        # self.seq_item_port = uvm_seq_item_port("seq_item_port", self)
 
     async def run_phase(self):
-        """
-        UVM run_phase: 主执行循环
-        """
+        """主执行循环"""
         self.logger.info("Driver run_phase started (BFM mode)")
 
         while True:
@@ -41,10 +38,11 @@ class Driver(uvm_driver):
             # [!!] LLM 的任务:
             # 调用在 'base_bfm.py' 中由 LLM 定义的 *对应* BFM 方法
             #
-            # 示例:
+            # [!!] LLM生成示例:
             # await self.bfm.drive_input_transaction(seq_item)
             #
-            # 示例 (如果是读操作):
+            # [!!] LLM生成示例:
+            # (如果是读操作):
             # read_data = await self.bfm.sw_read(seq_item.addr)
             # seq_item.data_out = read_data # 将读到的数据写回 item
             #

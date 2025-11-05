@@ -1,3 +1,7 @@
+# vpilot/skeletons/scoreboard.py
+#
+# UVM Scoreboard (BFM 模式)
+# 架构: FIFO 异步拉取模式 (基于 TinyALU 示例)
 import cocotb
 from collections import deque
 from pyuvm import uvm_component, uvm_tlm_analysis_fifo
@@ -5,9 +9,7 @@ from seq_item import MySeqItem
 
 
 class Scoreboard(uvm_component):
-    """
-    UVM Scoreboard (采用 FIFO 异步拉取模式)
-    """
+    """UVM Scoreboard, 采用 FIFO 异步拉取模式"""
 
     def build_phase(self):
         super().build_phase()
@@ -43,7 +45,7 @@ class Scoreboard(uvm_component):
     # LLM_GENERATED_START: REFERENCE_MODEL_LOGIC
     # --------------------------------------------------
     # [!!] LLM 的任务:
-    # 在这里实现参考模型 (RM) 的 *逻辑*
+    # 在这里使用python实现参考模型 (RM) 的 *逻辑*
     #
     # 示例 (累加器 RM 逻辑):
     # def _run_rm_accumulator(self, input_item: MySeqItem):

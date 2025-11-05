@@ -1,9 +1,11 @@
 import re
 import typer
+import textwrap
 from pathlib import Path
 
 
 class CodeManager:
+    """负责管理 UVM 测试平台代码中的 LLM 生成代码块."""
 
     def __init__(self, uvm_tb_path):
         self.uvm_tb_path = uvm_tb_path
@@ -16,10 +18,10 @@ class CodeManager:
     def _get_file_path(self, relative_file):
         return (self.uvm_tb_path / relative_file).resolve()
 
-    def _get_block_pattern(self, block_id):
+    def _get_block_pattern(self, block_id: str) -> re.Pattern:
         """
-        它匹配 (START 标签) + (内容) + (END 标签前的空白) + (END 标签)
-        不关心 START 标签行的缩进.
+        匹配 (START 标签) + (内容) + (END 标签前的空白) + (END 标签)
+        不关心缩进.
         """
         start_marker = f"# LLM_GENERATED_START: {re.escape(block_id)}"
         end_marker = f"# LLM_GENERATED_END: {re.escape(block_id)}"
@@ -35,8 +37,8 @@ class CodeManager:
         return pattern
 
     def _sanitize_llm_code(self, raw_response):
-        """
-        清理 LLM 的原始响应.
+        """清理 LLM 的原始响应.
+        只清理 "传输工件", 不触碰 "代码空白"
         """
         code = raw_response
 
@@ -46,21 +48,20 @@ class CodeManager:
             code = match.group(1)
 
         # 2. 去除 'v-pilot:fill:[...]' 头部
-        code = re.sub(r"^v-pilot:fill:.*?\n", "", code, flags=re.MULTILINE)
-
-        # 移除 LLM 倾向于添加的多余空行
-        code = re.sub(r"(\n\s*){2,}", "\n", code)
-
+        code = re.sub(r"^v-pilot:fill:.*?\n", "", code, flags=re.MULTILINE, count=1)
         return code
 
     def update_block(self, relative_file, block_id, new_code):
         """
-        假设 LLM 返回的代码 *已包含* 正确的缩进.
+        哑注入: 认定 LLM 返回的代码包含正确的缩进.
         """
         file_path = self._get_file_path(relative_file)
 
         if not file_path.exists():
-            # ... (错误处理)
+            typer.secho(
+                f"CodeManager update_block Error: 文件不存在: {relative_file}",
+                fg=typer.colors.RED,
+            )
             return False
 
         try:
@@ -72,39 +73,22 @@ class CodeManager:
             if not match:
                 typer.secho(
                     f"CodeManager Error: 找不到标记 '{block_id}' "
-                    f"在文件 {relative_file} 中 (V7 Regex)",
+                    f"在文件 {relative_file} 中 ",
                     fg=typer.colors.RED,
                 )
                 return False
 
-            # 1. 清理 LLM 的代码 (移除 Markdown 和多余空行)
+            # 清理 LLM 的代码
             clean_code = self._sanitize_llm_code(new_code)
 
-            # 3. 构建替换:
-            # (组 1: START 标签)
-            # (组 3: END 标签前的空白)
-            # (组 4: END 标签)
-            #
-            # [!!] 关键:
-            # clean_code (LLM 的响应) *必须*
-            # 1. 以 '\n' + '缩进' 开头
-            # 2. 以 '缩进' + '\n' 结尾
-            #
-            # 让我们强制执行这一点:
+            # 构造替换字符串
+            # 组 1: START 标签
+            # {clean_code}: LLM 的响应 (它 *应该* 自己以 '\n' + '缩进' 开始)
+            # 组 3: END 标签前的空白 (它 *应该* 包含 '\n' + '缩进')
+            # 组 4: END 标签
+            replacement = f"\\1\n{clean_code}\\3\\4"
 
-            # (从 'match.group(3)' 中提取 END 标签的缩进)
-            end_ws_match = re.search(r"(\s*)$", match.group(3))
-            indent_str = end_ws_match.group(1) if end_ws_match else ""
-
-            # 确保代码以换行+缩进开头 (如果它还不是的话)
-            if not clean_code.startswith("\n"):
-                clean_code = f"\n{indent_str}{clean_code}"
-
-            # 确保代码以换行+缩进结尾
-            if not clean_code.endswith(f"\n{indent_str}"):
-                clean_code = f"{clean_code}\n{indent_str}"
-
-            replacement = f"\\1{clean_code}\\4"
+            # 执行替换
             new_content = pattern.sub(replacement, original_content, count=1)
             file_path.write_text(new_content, encoding="utf-8")
 
@@ -115,7 +99,10 @@ class CodeManager:
             return True
 
         except Exception as e:
-            # ... (错误处理)
+            typer.secho(
+                f"CodeManager Error: 更新文件 {file_path} 失败: {e}",
+                fg=typer.colors.RED,
+            )
             return False
 
     def read_block(self, relative_file, block_id):
@@ -129,7 +116,7 @@ class CodeManager:
             pattern = self._get_block_pattern(block_id)
             match = pattern.search(content)
             if match:
-                return match.group(3).strip()
+                return match.group(2).strip()
             else:
                 typer.secho(
                     f"CodeManager Error: 找不到标记 '{block_id}' "

@@ -1,3 +1,7 @@
+# vpilot/skeletons/monitor.py
+#
+# UVM Monitor (BFM 模式)
+# 职责: 1. 调用 BFM 采集数据. 2. 组装 SeqItem. 3. 广播 (ap.write).
 from pyuvm import uvm_component, uvm_analysis_port
 
 from base_bfm import BaseBfm
@@ -5,14 +9,10 @@ from seq_item import MySeqItem
 
 
 class Monitor(uvm_component):
-    """
-    UVM Monitor
-    """
+    """UVM Monitor"""
 
     def build_phase(self):
-        """
-        UVM build_phase: 获取 BFM, 创建分析端口
-        """
+        """获取 BFM, 创建分析端口"""
         super().build_phase()
 
         # 1. 获取 BFM 单例
@@ -26,9 +26,7 @@ class Monitor(uvm_component):
         self.ap = uvm_analysis_port("ap", self)
 
     async def run_phase(self):
-        """
-        UVM run_phase: 主执行循环
-        """
+        """主执行循环"""
         self.logger.info("Monitor run_phase started (BFM mode)")
 
         while True:

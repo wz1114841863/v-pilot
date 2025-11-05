@@ -1,12 +1,17 @@
+# vpilot/skeletons/seq_item.py
+#
+# UVM Sequence Item (数据包)
+# 职责: 1. 定义 *固定名称* 为 'MySeqItem' 的类.
 import random
 from pyuvm import uvm_sequence_item
 
 
+# --------------------------------------------------
+# [!!] 框架固定代码 (Static)
+# [!!] 类名 'MySeqItem' 是 *固定* 的
+# --------------------------------------------------
 class MySeqItem(uvm_sequence_item):
-    """
-    [!!] LLM 的任务:
-    填充下面的所有 'LLM_GENERATED' 区域
-    """
+    """核心类: 需要 LLM 实现所有字段和方法"""
 
     def __init__(self, name="MySeqItem"):
         super().__init__(name)
@@ -32,9 +37,7 @@ class MySeqItem(uvm_sequence_item):
         # --------------------------------------------------
 
     def randomize(self):
-        """
-        LLM 可以实现一个基础的 randomize 方法
-        """
+        """LLM 可以实现一个基础的 randomize 方法"""
         # --------------------------------------------------
         # LLM_GENERATED_START: SEQ_ITEM_RANDOMIZE
         # ----------------------------------
@@ -52,7 +55,8 @@ class MySeqItem(uvm_sequence_item):
 
     def __str__(self):
         """
-        [!!] 关键方法: 实现 __str__ 以便在日志中清晰地打印 item
+        [!!] 关键方法:
+            实现 __str__ 以便在日志中清晰地打印 item
         """
         # --------------------------------------------------
         # LLM_GENERATED_START: SEQ_ITEM_STR
@@ -71,7 +75,8 @@ class MySeqItem(uvm_sequence_item):
 
     def __eq__(self, other):
         """
-        [!!] 关键方法: 实现 __eq__ 以便 Scoreboard 进行比对 (item_a == item_b)
+        [!!] 关键方法:
+            实现 __eq__ 以便 Scoreboard 进行比对 (item_a == item_b)
         """
         if not isinstance(other, MySeqItem):
             return False

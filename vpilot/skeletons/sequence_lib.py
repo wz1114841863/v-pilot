@@ -1,3 +1,7 @@
+# vpilot/skeletons/sequence_lib.py
+#
+# UVM 序列库 (Sequence Library)
+# 职责: 1. 定义 'MyBaseSeq'. 2. LLM *追加* 具体序列.
 import random
 import cocotb
 
@@ -17,10 +21,6 @@ class MyBaseSeq(uvm_sequence):
     def __init__(self, name="MyBaseSeq"):
         super().__init__(name)
         self.item = MySeqItem()  # 预先创建一个 'item' 句柄, 方便子类使用
-
-        # (可选) 序列 *可以* 访问 BFM, 但这不是一个好习惯
-        # 序列 *不应该* 直接调用 BFM
-        # 序列 *应该* 只通过 start_item/finish_item 与 Driver 通信
 
     async def body(self):
         """

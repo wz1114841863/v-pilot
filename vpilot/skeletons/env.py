@@ -1,4 +1,8 @@
-from pyuvm import uvm_env
+# vpilot/skeletons/env.py
+#
+# UVM 顶层环境
+# 职责: 1. 实例化 UVM 子组件. 2. 连接 UVM 子组件.
+from pyuvm import uvm_env, ConfigDB
 
 from agent import MyAgent
 from scoreboard import Scoreboard
@@ -9,9 +13,7 @@ class TestEnv(uvm_env):
     """顶层测试环境"""
 
     def build_phase(self):
-        """
-        UVM build_phase: 实例化所有子组件
-        """
+        """实例化所有子组件"""
         super().build_phase()
 
         # --------------------------------------------------
@@ -20,19 +22,16 @@ class TestEnv(uvm_env):
         # [!!] LLM 的任务:
         # 根据plan.yml的 'uvm_components' 部分来实例化 Agents 和 Scoreboards
         #
-        # 示例 (单Agent, 1个Monitor监控输入和输出):
-        # self.agent = MyAgent.create("agent", self)
-        # self.agent.set_is_active(1) # 1 = ACTIVE
-        # self.scoreboard = Scoreboard.create("scoreboard", self)
-
-        # 示例 (双Agent, In/Out):
+        # [!!] LLM 填充示例:
+        # ConfigDB().set(self, "input_agent", "is_active", 1) # 1 = ACTIVE
         # self.input_agent = MyAgent.create("input_agent", self)
-        # self.input_agent.set_is_active(1) # ACTIVE
         #
+        # ConfigDB().set(self, "output_agent", "is_active", 0) # 0 = PASSIVE
         # self.output_agent = MyAgent.create("output_agent", self)
-        # self.output_agent.set_is_active(0) # PASSIVE (只含Monitor)
         #
         # self.scoreboard = Scoreboard.create("scoreboard", self)
+        # self.coverage = Coverage.create("coverage", self)
+        #
         # --------------------------------------------------
         # LLM_GENERATED_END: ENV_INSTANTIATION
         # --------------------------------------------------

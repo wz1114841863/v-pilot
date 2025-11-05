@@ -13,6 +13,7 @@ TOPLEVEL_LANG ?= verilog
 # --- Verilator 特定编译参数 ---
 ifeq ($(SIM), verilator)
 	COMPILE_ARGS += --timing
+	COMPILE_ARGS += -Wno-WIDTHEXPAND
 	EXTRA_ARGS += --trace --trace-structs
 endif
 

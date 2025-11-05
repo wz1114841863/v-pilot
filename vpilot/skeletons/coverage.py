@@ -1,3 +1,7 @@
+# vpilot/skeletons/coverage.py
+#
+# UVM 功能覆盖率收集器
+# 架构: uvm_subscriber
 from pyuvm import uvm_subscriber
 from cocotb_coverage.coverage import CoverPoint, CoverCross, coverage_db
 from seq_item import MySeqItem
@@ -60,10 +64,10 @@ class Coverage(uvm_subscriber):
         # --------------------------------------------------
         # LLM_GENERATED_START: COVERAGE_SAMPLE_CALL
         # --------------------------------------------------
-        # [!!] LLM 的任务:
+        # [!!] LLM的任务:
         # 调用在上面定义的 *采样函数*
         #
-        # 示例 (接着上面的例子):
+        # [!!] LLM生成示例:
         # try:
         #     sample_coverage(item)
         # except Exception as e:
@@ -74,9 +78,7 @@ class Coverage(uvm_subscriber):
         # ----------------------------------
 
     def report_phase(self):
-        """
-        UVM report_phase: 打印覆盖率报告 (框架固定)
-        """
+        """打印覆盖率报告 (框架固定)"""
         self.logger.info("--- Coverage Report ---")
         try:
             # 调用 cocotb-coverage 的全局数据库来打印报告

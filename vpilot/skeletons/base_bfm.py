@@ -1,7 +1,13 @@
+# vpilot/skeletons/base_bfm.py
+#
+# Base Bus Functional Model (BFM)
+# 职责: 封装所有 cocotb 信号时序, 提供对dut的高层次抽象访问.
+# 架构: Singleton (单例) 模式.
 import cocotb
 
 from cocotb.triggers import RisingEdge, FallingEdge, Timer, ReadOnly
 from pyuvm import utility_classes
+from seq_item import MySeqItem
 
 
 class BaseBfm(metaclass=utility_classes.Singleton):
@@ -17,7 +23,8 @@ class BaseBfm(metaclass=utility_classes.Singleton):
         # --------------------------------------------------
         # [!!] LLM 的任务:
         # 根据<设计规范>的 'ports' 部分,
-        # 提供 *正确* 的时钟和复位信号句柄
+        # 提供 *正确* 的时钟, 复位信号句柄 和 其余数据端口句柄.
+        # [!!] LLM 填充示例:
         self.clk = self.dut.clk
         self.rst_n = self.dut.rst_n
         self.data_in = self.dut.data_in
@@ -32,9 +39,7 @@ class BaseBfm(metaclass=utility_classes.Singleton):
         )
 
     async def wait_clock(self, cycles=1):
-        """
-        框架提供的/可复用的时钟等待任务.
-        """
+        """框架提供的/可复用的时钟等待任务."""
         for _ in range(cycles):
             await RisingEdge(self.clk)
 
@@ -44,7 +49,7 @@ class BaseBfm(metaclass=utility_classes.Singleton):
     # [!!] LLM 的任务:
     # 实现一个 *具体* 的复位任务, 使用 self.clk 和 self.rst_n
     #
-    # 示例:
+    # [!!] LLM 填充示例:
     # async def reset(self):
     #     self.log.info("BFM: Starting DUT Reset...")
     #     await RisingEdge(self.clk)
@@ -64,7 +69,7 @@ class BaseBfm(metaclass=utility_classes.Singleton):
     # [!!] LLM 的任务:
     # 为 'Driver' 实现高层抽象的 *写入/驱动* 任务
     #
-    # 示例:
+    # [!!] LLM 填充示例:
     # async def drive_input_transaction(self, item: MySeqItem):
     #     """
     #     根据 seq_item 驱动输入端口
@@ -88,6 +93,7 @@ class BaseBfm(metaclass=utility_classes.Singleton):
     # 为 'Monitor' 实现高层抽象的 *监视* 任务或 *getter* 方法
     # [!!] 关键: Monitor 需要采样 *输入* 和 *输出* 才能构建完整 Transaction
     #
+    # [!!] LLM 填充示例:
     # async def wait_for_input_valid(self):
     #     """等待一个有效的输入"""
     #     await RisingEdge(self.clk)

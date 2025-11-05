@@ -106,15 +106,12 @@ sequence_library:
 # LLM 必须确保此列表与 'verification_points.coverage_to_check' *一致*
 coverage_points:
   - name: "cp_input_range"
-    description: "覆盖输入数据的边界"
     item_field: "data_in" # (来自 seq_item.py)
-    bins: "list(range(0, 256, 16))" # (Python 代码字符串)
+    bins: "list(range(0, 256, 16))"
 
   - name: "cp_output_overflow"
-    description: "覆盖溢出标志"
     item_field: "overflow" # (来自 seq_item.py)
     bins: "[0, 1]"
 
   - name: "cp_reset_during_active_transaction"
-    description: "在有效传输期间触发复位 (可能需要 cross)"
     # ...
