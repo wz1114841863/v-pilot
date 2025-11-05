@@ -1,6 +1,6 @@
 # vpilot/templates/spec/design_spec.tpl.yml
 module_name: "" # 例如: "pipelined_multiplier"
-description: "" # 例如: "一个参数化数据位宽和流水线级数的乘法器"
+description: "" # 详细描述该模块的设计
 
 # v-pilot 将根据此字段, 选择 'sequential' 骨架或 'combinational' 骨架
 design_type: "" # 填充 'sequential' 或 'combinational'

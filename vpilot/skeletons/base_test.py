@@ -4,7 +4,7 @@
 # 职责: 1. 实例化 Env 和 BFM. 2. 启动时钟. 3. 管理 Objection.
 import cocotb
 from cocotb.clock import Clock
-from pyuvm import uvm_test
+from pyuvm import uvm_test, uvm_root
 from env import TestEnv
 from base_bfm import BaseBfm
 
@@ -22,7 +22,8 @@ class MyBaseTest(uvm_test):
 
     def end_of_elaboration_phase(self):
         """打印测试平台拓扑, 有助于调试"""
-        self.print_topology()
+        super().end_of_elaboration_phase()
+        print(uvm_root())
 
     async def run_phase(self):
         """启动时钟, 管理 objection, 调用 main_phase"""
@@ -35,7 +36,7 @@ class MyBaseTest(uvm_test):
             self.fail("BFM did not correctly initialize 'self.clk' handle.")
 
         # 在这里从 ConfigDB 或 LLM 获取时钟周期, 暂时硬编码为 10ns
-        cocotb.start_soon(Clock(self.bfm.clk, 10, units="ns").start())
+        cocotb.start_soon(Clock(self.bfm.clk, 10, unit="ns").start())
 
         # 3. 执行 BFM 中的复位任务
         #    确保每个测试开始时 DUT 都被复位

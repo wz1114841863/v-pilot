@@ -14,7 +14,8 @@ TOPLEVEL_LANG ?= verilog
 ifeq ($(SIM), verilator)
 	COMPILE_ARGS += --timing
 	COMPILE_ARGS += -Wno-WIDTHEXPAND
-	EXTRA_ARGS += --trace --trace-structs
+	COMPILE_ARGS += -CFLAGS "-O3"
+	EXTRA_ARGS += --trace-fst --trace-structs
 endif
 
 # --- HDL 时间单位 ---

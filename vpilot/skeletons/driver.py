@@ -13,13 +13,10 @@ class Driver(uvm_driver):
         """获取 BFM, 创建端口"""
         super().build_phase()
 
-        # 1. 获取 BFM 单例
+        # 获取 BFM 单例
         self.bfm = BaseBfm()
         if self.bfm is None:
             self.fail("BFM Singleton not found.")
-
-        # 创建 seq_item_port
-        # self.seq_item_port = uvm_seq_item_port("seq_item_port", self)
 
     async def run_phase(self):
         """主执行循环"""

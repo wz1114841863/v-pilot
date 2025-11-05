@@ -46,25 +46,19 @@ class MyBaseSeq(uvm_sequence):
 # 示例 (一个基本的随机测试):
 #
 # class BasicDataTestSeq(MyBaseSeq):
-#     async def body(self):
-#         self.logger.info("Running BasicDataTestSeq...")
+#     async def body(self):
+#         for _ in range(10):
+#             # 1. 请求仲裁 (等待被 Driver 选中)
+#             await self.start_item(self.item)
 #
-#         for _ in range(10):
-#             # 1. 随机化 item
-#             #    (我们假设 'randomize()' 在 seq_item.py 中已由 LLM 实现)
-#             self.item.randomize()
+#             # 2. (可选) 在 Driver 启动前做最后修改
+#             #    (我们假设 'randomize()' 在 seq_item.py 中已由 LLM 实现)
+#             self.item.randomize()
 #
-#             # 2. [!!] 启动 item (将其发送给 Driver)
-#             # 'await self.start_item(item)' 会:
-#             #   a. 将 item 发送给 Sequencer -> Driver
-#             #   b. *等待* Driver 调用 item_done()
-#             await self.start_item(self.item)
+#             # 3. [!!] 锁定 item, 发送, 并*等待* Driver 调用 item_done()
+#             await self.finish_item(self.item)
 #
-#             # 3. [!!] 接收 item (它可能已被 Driver 的 BFM 调用修改)
-#             #    (这对于 "读" 操作至关重要)
-#             await self.finish_item(self.item)
-#
-#             self.logger.debug(f"Seq received item back: {self.item}")
+#             self.logger.debug(f"Seq received item back: {self.item}")
 #
 #
 # 示例 (一个 fork/join 序列, 像 'TestAllForkSeq'):

@@ -4,6 +4,8 @@
 tmp/*
 
 example_accu/*
+example_accu_test/*
+example_*/
 examples/*
 vpilot.egg-info/*
 __pycache__/*

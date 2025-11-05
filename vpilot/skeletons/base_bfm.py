@@ -103,7 +103,7 @@ class BaseBfm(metaclass=utility_classes.Singleton):
     #
     # def get_input_data(self):
     #     """采样输入数据 (应在 valid 时调用)"""
-    #     return self.dut.data_in.value
+    #     return int(self.dut.data_in.value)
     #
     # async def wait_for_output_valid(self):
     #     """等待一个有效的输出"""
@@ -114,7 +114,7 @@ class BaseBfm(metaclass=utility_classes.Singleton):
     #
     # def get_output_data(self):
     #     """采样输出数据 (应在 valid 时调用)"""
-    #     return self.dut.data_out.value
+    #     return int(self.dut.data_out.value)
     #
     # --------------------------------------------------
     # LLM_GENERATED_END: BFM_MONITOR_TASKS_AND_GETTERS

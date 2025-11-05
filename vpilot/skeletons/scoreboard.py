@@ -130,6 +130,7 @@ class Scoreboard(uvm_component):
                 f"FAIL: Extra expected item (DUT did not send): {self.expected_q.popleft()}"
             )
             self.fail_count += 1
+
         while self.actual_q:
             self.logger.error(
                 f"FAIL: Extra actual item (unexpected from DUT): {self.actual_q.popleft()}"
@@ -141,7 +142,12 @@ class Scoreboard(uvm_component):
             f"Scoreboard Report: PASS={self.pass_count}, FAIL={self.fail_count}"
         )
         if self.fail_count > 0:
-            self.fail(f"Scoreboard failed with {self.fail_count} mismatches.")
+            msg = f"Scoreboard failed with {self.fail_count} mismatches."
+            self.logger.error(msg)
+
+            # [关键] 抛出异常以通知 cocotb 测试失败
+            #    否则 cocotb 会错误地报告 PASS
+            raise AssertionError(msg)
         elif self.pass_count == 0:
             self.logger.warning(
                 "Scoreboard finished with PASS=0. No transactions were checked."
