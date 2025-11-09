@@ -58,7 +58,8 @@ class MyBaseSeq(uvm_sequence):
 #             # 3. [!!] 锁定 item, 发送, 并*等待* Driver 调用 item_done()
 #             await self.finish_item(self.item)
 #
-#             self.logger.debug(f"Seq received item back: {self.item}")
+#             # 注意: logger 句柄在 sequencer 上, 因此我们通过 self.sequencer 访问它
+#             self.sequencer.logger.debug(f"Seq received item back: {self.item}")
 #
 #
 # 示例 (一个 fork/join 序列, 像 'TestAllForkSeq'):
